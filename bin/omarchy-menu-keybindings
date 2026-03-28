@@ -223,6 +223,30 @@ prioritize_entries() {
   cut -f2-
 }
 
+dedup_by_key_combo() {
+  awk '
+  {
+    # Extract the key combo: everything before the first " → " separator
+    if (match($0, / → /)) {
+      combo = substr($0, 1, RSTART - 1)
+    } else {
+      combo = $0
+    }
+    gsub(/^[ \t]+|[ \t]+$/, "", combo)
+
+    # Track first-seen order; always overwrite with the latest line (user overrides win)
+    if (!(combo in lines)) {
+      order[++n] = combo
+    }
+    lines[combo] = $0
+  }
+  END {
+    for (i = 1; i <= n; i++) {
+      print lines[order[i]]
+    }
+  }'
+}
+
 output_keybindings() {
   build_keymap_cache
 
@@ -230,9 +254,9 @@ output_keybindings() {
     dynamic_bindings
     static_bindings
   } |
-    sort -u |
     parse_keycodes |
     parse_bindings |
+    dedup_by_key_combo |
     prioritize_entries
 }
 
